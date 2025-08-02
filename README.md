@@ -1,6 +1,41 @@
 # nl_map_search_mcp
 자연어로 지도에서 장소 검색하는 MCP 서버
 
+## 사전 요구사항
+Naver MCP 서버를 사용하려면 Naver Open API 접근 권한을 신청해야 합니다.  
+아래 링크에서 Open API 접근을 신청할 수 있습니다:
+
+https://developers.naver.com/apps/#/register=datalab
+
+## 설치 방법
+
+### MCP 서버 및 의존성 설치 (using `git bash`)
+
+```bash
+# 저장소 클론
+git clone https://github.com/kwonskdev/nl_map_search_mcp.git 
+
+# 프로젝트 디렉토리로 이동
+cd nl_map_search_mcp
+
+# 의존성 동기화
+uv sync --dev --all-extras
+```
+
+### 서버 실행
+
+```powershell
+uv run fastmcp install cursor mcp_naver/server.py --env-file .env
+```
+
+**참고사항**: 
+- 서버 실행 전에 .env 파일을 아래와 같이 작성해야 합니다.
+
+```
+NAVER_CLIENT_ID=<YOUR NAVER CLIENT ID>
+NAVER_CLIENT_SECRET=<YOUR NAVER CLIENT SECRET>
+```
+
 <details>
 <summary>📖 Naver MCP Server (기존 README 내용 보기)</summary>
 
@@ -42,7 +77,7 @@ uv pip install mcp-naver
 
 uv run python -m mcp-naver.hosts.cursor \
   -e NAVER_CLIENT_ID=<YOUR NAVER CLIENT ID> \
-  -e NAVER_CLIENT_SECRET=<YOUR NAVER CLIENT_SECRET>
+  -e NAVER_CLIENT_SECRET=<YOUR NAVER_CLIENT_SECRET>
 ```
 
 ### from source
@@ -156,3 +191,5 @@ search_doc(query: str, display: int = 10, start: int = 1)
 ## License
 
 This project is open source software [licensed as MIT](https://opensource.org/licenses/MIT).
+
+</details>
