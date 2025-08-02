@@ -9,7 +9,7 @@ description = "MCP server providing Naver Open APIs"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "fastmcp>=0.4.1",
+    "fastmcp>=2.11.0",
     "httpx>=0.28.1",
     "pydantic>=2.10.6",
     "xmltodict>=0.14.2",
