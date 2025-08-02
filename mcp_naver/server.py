@@ -30,13 +30,14 @@ async def search_blog(
     sort: str = "sim",
 ):
     """
-    Search blog posts on Naver
+    네이버 검색의 블로그 검색 결과를 반환합니다.
+    블로그 포스트, 개인 블로그, 기업 블로그 등의 블로그 콘텐츠를 검색할 수 있습니다.
 
     Args:
-        query (str): The query to search for.
-        display (int, optional): The number of items to display. Defaults to 10.
-        start (int, optional): The start index for the search. Defaults to 1.
-        sort (str, optional): The sorting method. Defaults to "sim".
+        query (str): 검색할 키워드나 문구
+        display (int, optional): 한 번에 표시할 검색 결과 개수 (기본값: 10, 최대: 100)
+        start (int, optional): 검색 시작 위치 (기본값: 1, 최대: 1000)
+        sort (str, optional): 정렬 방법 - "sim"(정확도순), "date"(최신순) (기본값: "sim")
     """
 
     async with httpx.AsyncClient() as client:
@@ -57,187 +58,6 @@ async def search_blog(
 
 
 @mcp.tool(
-    name="search_news",
-    description="Search news articles on Naver",
-)
-def search_news(
-    query: str,
-    display: int = 10,
-    start: int = 1,
-    sort: str = "sim",
-):
-    """
-    Search news articles on Naver
-
-    Args:
-        query (str): The query to search for.
-        display (int, optional): The number of items to display. Defaults to 10.
-        start (int, optional): The start index for the search. Defaults to 1.
-        sort (str, optional): The sorting method. Defaults to "sim".
-    """
-
-    with httpx.Client() as client:
-        response = client.get(
-            f"{API_ENDPOINT}/search/news.json",
-            params={
-                "query": query,
-                "display": display,
-                "start": start,
-                "sort": sort,
-            },
-            headers=api_headers,
-        )
-
-        response.raise_for_status()  # Raise an error for bad responses
-
-        return response.text
-
-
-@mcp.tool(
-    name="search_book",
-    description="Search books on Naver",
-)
-def search_book(
-    query: str,
-    display: int = 10,
-    start: int = 1,
-    sort: str = "sim",
-):
-    """
-    Search books on Naver
-
-    Args:
-        query (str): The query to search for.
-        display (int, optional): The number of items to display. Defaults to 10.
-        start (int, optional): The start index for the search. Defaults to 1.
-        sort (str, optional): The sorting method. Defaults to "sim".
-    """
-
-    with httpx.Client() as client:
-        response = client.get(
-            f"{API_ENDPOINT}/search/book.json",
-            params={
-                "query": query,
-                "display": display,
-                "start": start,
-                "sort": sort,
-            },
-            headers=api_headers,
-        )
-
-        response.raise_for_status()  # Raise an error for bad responses
-
-        return response.text
-
-
-@mcp.tool(
-    name="get_book_adv",
-    description="Get book information from Naver",
-)
-def get_book_adv(
-    query: str = None,
-    display: int = 10,
-    start: int = 1,
-    sort: str = "sim",
-    d_titl: str = None,
-    d_isbn: str = None,
-):
-    """
-    Get book information from Naver
-
-    Args:
-        query (str): The query to search for.
-        display (int, optional): The number of items to display. Defaults to 10.
-        start (int, optional): The start index for the search. Defaults to 1.
-        sort (str, optional): The sorting method. Defaults to "sim".
-        d_titl (str, optional): Title of the book.
-        d_isbn (str, optional): ISBN of the book.
-    """
-
-    assert d_titl or d_isbn, "Either d_titl or d_isbn must be provided"
-
-    with httpx.Client() as client:
-        response = client.get(
-            f"{API_ENDPOINT}/search/book_adv.xml",
-            params={
-                "query": query,
-                "display": display,
-                "start": start,
-                "sort": sort,
-                "d_titl": d_titl,
-                "d_isbn": d_isbn,
-            },
-            headers=api_headers,
-        )
-
-        response.raise_for_status()  # Raise an error for bad responses
-
-        return json.dumps(xmltodict.parse(response.text), ensure_ascii=False)
-
-
-@mcp.tool(
-    name="adult_check",
-    description="Check if the search term is adult content",
-)
-def adult_check(
-    query: str,
-):
-    """
-    Check if the search term is adult content
-
-    Args:
-        query (str): The query to check.
-    """
-
-    with httpx.Client() as client:
-        response = client.get(
-            f"{API_ENDPOINT}/search/adult.json",
-            params={
-                "query": query,
-            },
-            headers=api_headers,
-        )
-
-        response.raise_for_status()  # Raise an error for bad responses
-
-        return response.text
-
-
-@mcp.tool(
-    name="search_encyc",
-    description="Search encyclopedia on Naver",
-)
-def search_encyc(
-    query: str,
-    display: int = 10,
-    start: int = 1,
-):
-    """
-    Search encyclopedia on Naver
-
-    Args:
-        query (str): The query to search for.
-        display (int, optional): The number of items to display. Defaults to 10.
-        start (int, optional): The start index for the search. Defaults to 1.
-    """
-
-    with httpx.Client() as client:
-        response = client.get(
-            f"{API_ENDPOINT}/search/encyc.json",
-            params={
-                "query": query,
-                "display": display,
-                "start": start,
-            },
-            headers=api_headers,
-        )
-
-        response.raise_for_status()  # Raise an error for bad responses
-
-        return response.text
-
-
-@mcp.tool(
     name="search_cafe_article",
     description="Search cafe articles on Naver",
 )
@@ -248,55 +68,19 @@ def search_cafe_article(
     sort: str = "sim",
 ):
     """
-    Search cafe articles on Naver
+    네이버 검색의 카페글 검색 결과를 반환합니다.
+    네이버 카페 내의 게시글, 토론, 커뮤니티 콘텐츠를 검색할 수 있습니다.
 
     Args:
-        query (str): The query to search for.
-        display (int, optional): The number of items to display. Defaults to 10.
-        start (int, optional): The start index for the search. Defaults to 1.
-        sort (str, optional): The sorting method. Defaults to "sim".
+        query (str): 검색할 키워드나 문구
+        display (int, optional): 한 번에 표시할 검색 결과 개수 (기본값: 10, 최대: 100)
+        start (int, optional): 검색 시작 위치 (기본값: 1, 최대: 1000)
+        sort (str, optional): 정렬 방법 - "sim"(정확도순), "date"(최신순) (기본값: "sim")
     """
 
     with httpx.Client() as client:
         response = client.get(
             f"{API_ENDPOINT}/search/cafearticle.json",
-            params={
-                "query": query,
-                "display": display,
-                "start": start,
-                "sort": sort,
-            },
-            headers=api_headers,
-        )
-
-        response.raise_for_status()  # Raise an error for bad responses
-
-        return response.text
-
-
-@mcp.tool(
-    name="search_kin",
-    description="Search Q&A on Naver",
-)
-def search_kin(
-    query: str,
-    display: int = 10,
-    start: int = 1,
-    sort: str = "sim",
-):
-    """
-    Search Q&A on Naver
-
-    Args:
-        query (str): The query to search for.
-        display (int, optional): The number of items to display. Defaults to 10.
-        start (int, optional): The start index for the search. Defaults to 1.
-        sort (str, optional): The sorting method. Defaults to "sim".
-    """
-
-    with httpx.Client() as client:
-        response = client.get(
-            f"{API_ENDPOINT}/search/kin.json",
             params={
                 "query": query,
                 "display": display,
@@ -322,13 +106,14 @@ def search_local(
     sort: str = "random",
 ):
     """
-    Search local information on Naver
+    네이버 지역 서비스에 등록된 지역별 업체 및 상호 검색 결과를 반환합니다.
+    음식점, 카페, 병원, 약국, 편의점 등 지역 기반 업체 정보를 검색할 수 있습니다.
 
     Args:
-        query (str): The query to search for.
-        display (int, optional): The number of items to display. Defaults to 10.
-        start (int, optional): The start index for the search. Defaults to 1.
-        sort (str, optional): The sorting method. Defaults to "random".
+        query (str): 검색할 키워드나 문구
+        display (int, optional): 한 번에 표시할 검색 결과 개수 (기본값: 10, 최대: 100)
+        start (int, optional): 검색 시작 위치 (기본값: 1, 최대: 1000)
+        sort (str, optional): 정렬 방법 - "random"(랜덤순), "comment"(리뷰순), "count"(방문자순) (기본값: "random")
     """
 
     with httpx.Client() as client:
@@ -349,34 +134,6 @@ def search_local(
 
 
 @mcp.tool(
-    name="fix_spelling",
-    description="Correct spelling errors in a given text",
-)
-def fix_spelling(
-    query: str,
-):
-    """
-    Correct spelling errors in a given text
-
-    Args:
-        query (str): The text to correct.
-    """
-
-    with httpx.Client() as client:
-        response = client.get(
-            f"{API_ENDPOINT}/search/errata.json",
-            params={
-                "query": query,
-            },
-            headers=api_headers,
-        )
-
-        response.raise_for_status()  # Raise an error for bad responses
-
-        return response.text
-
-
-@mcp.tool(
     name="search_webkr",
     description="Search web pages on Naver",
 )
@@ -386,134 +143,18 @@ def search_webkr(
     start: int = 1,
 ):
     """
-    Search web pages on Naver
+    네이버 검색의 웹 문서 검색 결과를 반환합니다.
+    일반 웹페이지, 홈페이지, 기업 사이트 등의 웹 콘텐츠를 검색할 수 있습니다.
 
     Args:
-        query (str): The query to search for.
-        display (int, optional): The number of items to display. Defaults to 10.
-        start (int, optional): The start index for the search. Defaults to 1.
+        query (str): 검색할 키워드나 문구
+        display (int, optional): 한 번에 표시할 검색 결과 개수 (기본값: 10, 최대: 100)
+        start (int, optional): 검색 시작 위치 (기본값: 1, 최대: 1000)
     """
 
     with httpx.Client() as client:
         response = client.get(
             f"{API_ENDPOINT}/search/webkr.json",
-            params={
-                "query": query,
-                "display": display,
-                "start": start,
-            },
-            headers=api_headers,
-        )
-
-        response.raise_for_status()  # Raise an error for bad responses
-
-        return response.text
-
-
-@mcp.tool(
-    name="search_image",
-    description="Search images on Naver",
-)
-def search_image(
-    query: str,
-    display: int = 10,
-    start: int = 1,
-    sort: str = "sim",
-    filter: str = "all",
-):
-    """
-    Search images on Naver
-
-    Args:
-        query (str): The query to search for.
-        display (int, optional): The number of items to display. Defaults to 10.
-        start (int, optional): The start index for the search. Defaults to 1.
-        sort (str, optional): The sorting method. Defaults to "sim".
-        filter (str, optional): The filter for the search. Defaults to "all".
-    """
-
-    with httpx.Client() as client:
-        response = client.get(
-            f"{API_ENDPOINT}/search/image",
-            params={
-                "query": query,
-                "display": display,
-                "start": start,
-                "sort": sort,
-                "filter": filter,
-            },
-            headers=api_headers,
-        )
-
-        response.raise_for_status()  # Raise an error for bad responses
-
-        return response.text
-
-
-@mcp.tool(
-    name="search_shop",
-    description="Search shopping items on Naver",
-)
-def search_shop(
-    query: str,
-    display: int = 10,
-    start: int = 1,
-    sort: str = "sim",
-    filter: str = None,
-    exclude: str = None,
-):
-    """
-    Search shopping items on Naver
-
-    Args:
-        query (str): The query to search for.
-        display (int, optional): The number of items to display. Defaults to 10.
-        start (int, optional): The start index for the search. Defaults to 1.
-        sort (str, optional): The sorting method. Defaults to "sim".
-        filter (str, optional): The filter for the search. Defaults to None.
-        exclude (str, optional): The exclude filter for the search. Defaults to None.
-    """
-
-    with httpx.Client() as client:
-        response = client.get(
-            f"{API_ENDPOINT}/search/shop.json",
-            params={
-                "query": query,
-                "display": display,
-                "start": start,
-                "sort": sort,
-                "filter": filter,
-                "exclude": exclude,
-            },
-            headers=api_headers,
-        )
-
-        response.raise_for_status()  # Raise an error for bad responses
-
-        return response.text
-
-
-@mcp.tool(
-    name="search_doc",
-    description="Search documents on Naver",
-)
-def search_doc(
-    query: str,
-    display: int = 10,
-    start: int = 1,
-):
-    """
-    Search documents on Naver
-
-    Args:
-        query (str): The query to search for.
-        display (int, optional): The number of items to display. Defaults to 10.
-        start (int, optional): The start index for the search. Defaults to 1.
-    """
-
-    with httpx.Client() as client:
-        response = client.get(
-            f"{API_ENDPOINT}/search/doc.json",
             params={
                 "query": query,
                 "display": display,
