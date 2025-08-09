@@ -228,6 +228,100 @@ def search_google(
         error_msg = f"Google 검색 중 오류 발생: {str(e)}"
         return json.dumps({"error": error_msg})
 
+### 유튜브 MCP 서비스 ###
+@mcp.tool(
+    name="search_video",
+    description="Search for a YouTube video",
+)
+
+async def search_video(
+    query: str,
+    max_results: int = 10,
+):
+    """
+    Search for a YouTube video
+
+    Args:
+        query (str): The query to search for.
+        max_results (int, optional): The maximum number of results to return. Defaults to 10.
+    """
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"https://www.googleapis.com/youtube/v3/search?part=snippet&q={query}&key={YOUTUBE_API_KEY}",
+            params={
+                "part": "snippet",
+                "q": query,
+                "key": YOUTUBE_API_KEY,
+            },
+            headers=api_headers,
+        )   
+
+        response.raise_for_status() 
+
+        return response.text
+
+
+@mcp.tool(
+    name="get_video_details",
+    description="Get the details of a YouTube video",
+)
+
+async def get_video_details(
+    video_id: str
+):
+    """
+    Get the details of a YouTube video
+
+    Args:
+        video_id (str): The ID of the YouTube video
+    """
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"https://www.googleapis.com/youtube/v3/videos?part=snippet&id={video_id}&key={YOUTUBE_API_KEY}",
+            params={
+                "part": "snippet",
+                "id": video_id,
+                "key": YOUTUBE_API_KEY,
+            },
+            headers=api_headers,
+        )
+
+        response.raise_for_status()
+
+        return response.text
+
+
+@mcp.tool(
+    name="get_youtube_transcript",
+    description="Get the transcript of a YouTube video",
+)
+
+async def get_youtube_transcript(
+    video_id: str
+):
+
+    """
+    Get the transcript of a YouTube video
+    
+    Args:
+        video_id (str): The ID of the YouTube video
+    """
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"https://www.googleapis.com/youtube/v3/videos?part=snippet&id={video_id}&key={YOUTUBE_API_KEY}",
+            params={
+                "part": "snippet",
+                "id": video_id,
+                "key": YOUTUBE_API_KEY,
+            },
+            headers=api_headers,
+        )
+
+        response.raise_for_status()
+
+        return response.text
+
 
 if __name__ == "__main__":
     mcp.run()
