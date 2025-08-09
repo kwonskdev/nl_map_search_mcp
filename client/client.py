@@ -138,61 +138,123 @@ class MCPWebClient:
                 if self.enabled_tools.get(tool_key, False):
                     available_tools.append(tool)
 
-        response = self.anthropic.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=1000,
-            messages=messages,
-            tools=available_tools
-        )
+        # Create request parameters
+        request_params = {
+            "model": "claude-3-5-sonnet-20241022",
+            "max_tokens": 1000,
+            "messages": messages
+        }
+        
+        # Only add tools if we have any available
+        if available_tools:
+            request_params["tools"] = available_tools
 
-        final_text = []
-
-        for content in response.content:
-            if content.type == 'text':
-                final_text.append(content.text)
-            elif content.type == 'tool_use':
-                tool_name = content.name
-                tool_args = content.input
+        # Handle multiple rounds of tool usage
+        max_rounds = 10  # Prevent infinite loops
+        round_count = 0
+        all_tool_usage_messages = []  # Track all tool usage across rounds
+        
+        while round_count < max_rounds:
+            response = self.anthropic.messages.create(**request_params)
+            
+            # Check if response contains tool calls
+            has_tool_calls = any(content.type == 'tool_use' for content in response.content)
+            
+            if not has_tool_calls:
+                # No more tool calls, return the final response
+                final_response = []
                 
-                # Find the correct server for this tool (prioritize enabled ones)
-                server_name = None
-                for srv_name, srv_tools in self.server_tools.items():
-                    if not self.enabled_servers.get(srv_name, False):
-                        continue
-                    for srv_tool in srv_tools:
-                        tool_key = f"{srv_name}::{srv_tool['name']}"
-                        if srv_tool['name'] == tool_name and self.enabled_tools.get(tool_key, False):
-                            server_name = srv_name
-                            break
-                    if server_name:
-                        break
+                # Add tool usage summary if any tools were used
+                if all_tool_usage_messages:
+                    final_response.append("\n".join(all_tool_usage_messages))
+                    final_response.append("")  # Empty line for spacing
                 
-                if server_name and server_name in self.sessions:
-                    result = await self.sessions[server_name].call_tool(tool_name, tool_args)
-                    final_text.append(f"[도구 실행: {tool_name} (서버: {server_name})]")
-                else:
-                    final_text.append(f"[오류: 활성화된 도구 {tool_name}를 찾을 수 없음]")
-                    continue
-
-                if hasattr(content, 'text') and content.text:
-                    messages.append({
-                      "role": "assistant",
-                      "content": content.text
+                for content in response.content:
+                    if content.type == 'text':
+                        final_response.append(content.text)
+                return "\n".join(final_response)
+            
+            # Process tool calls in this round
+            assistant_content = []
+            tool_results = []
+            tool_usage_messages = []  # Track which tools were used
+            
+            for content in response.content:
+                if content.type == 'text':
+                    assistant_content.append({
+                        "type": "text",
+                        "text": content.text
                     })
-                messages.append({
-                    "role": "user", 
-                    "content": result.content
-                })
-
-                response = self.anthropic.messages.create(
-                    model="claude-3-5-sonnet-20241022",
-                    max_tokens=1000,
-                    messages=messages,
-                )
-
-                final_text.append(response.content[0].text)
-
-        return "\n".join(final_text)
+                elif content.type == 'tool_use':
+                    tool_name = content.name
+                    tool_args = content.input
+                    tool_use_id = content.id
+                    
+                    assistant_content.append({
+                        "type": "tool_use",
+                        "id": tool_use_id,
+                        "name": tool_name,
+                        "input": tool_args
+                    })
+                    
+                    # Find the correct server for this tool
+                    server_name = None
+                    for srv_name, srv_tools in self.server_tools.items():
+                        if not self.enabled_servers.get(srv_name, False):
+                            continue
+                        for srv_tool in srv_tools:
+                            tool_key = f"{srv_name}::{srv_tool['name']}"
+                            if srv_tool['name'] == tool_name and self.enabled_tools.get(tool_key, False):
+                                server_name = srv_name
+                                break
+                        if server_name:
+                            break
+                    
+                    # Execute the tool
+                    if server_name and server_name in self.sessions:
+                        try:
+                            result = await self.sessions[server_name].call_tool(tool_name, tool_args)
+                            tool_results.append({
+                                "type": "tool_result",
+                                "tool_use_id": tool_use_id,
+                                "content": result.content
+                            })
+                            tool_usage_messages.append(f"🔧 도구 실행: {tool_name} (서버: {server_name})")
+                        except Exception as e:
+                            tool_results.append({
+                                "type": "tool_result", 
+                                "tool_use_id": tool_use_id,
+                                "content": f"도구 실행 오류: {str(e)}"
+                            })
+                            tool_usage_messages.append(f"❌ 도구 실행 실패: {tool_name} - {str(e)}")
+                    else:
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": tool_use_id, 
+                            "content": f"활성화된 도구 {tool_name}를 찾을 수 없음"
+                        })
+                        tool_usage_messages.append(f"❌ 도구를 찾을 수 없음: {tool_name}")
+            
+            # Add current round's tool usage messages to the global list
+            all_tool_usage_messages.extend(tool_usage_messages)
+            
+            # Add assistant message and tool results to conversation
+            messages.append({
+                "role": "assistant",
+                "content": assistant_content
+            })
+            
+            messages.append({
+                "role": "user",
+                "content": tool_results
+            })
+            
+            # Update request parameters for next round
+            request_params["messages"] = messages
+            round_count += 1
+        
+        # If we hit max rounds, return a message
+        return "대화가 너무 길어져 중단되었습니다. 다시 시도해 주세요."
     
     async def cleanup(self):
         """Clean up resources"""
