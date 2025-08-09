@@ -23,6 +23,8 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 GOOGLE_SEARCH_ENGINE_ID = os.environ.get("GOOGLE_SEARCH_ENGINE_ID")
 GOOGLE_BASE_URL = "https://www.googleapis.com/customsearch/v1"
 
+# Youtube MCP API 설정
+YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY")
 
 @mcp.tool(
     name="search_blog",
