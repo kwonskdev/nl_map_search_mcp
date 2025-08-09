@@ -1,6 +1,7 @@
 import asyncio
 import os
-from typing import Optional, Dict, List
+import json
+from typing import Optional, Dict, List, Any
 from contextlib import AsyncExitStack
 
 from mcp import ClientSession, StdioServerParameters
@@ -18,47 +19,118 @@ class MCPClient:
         self.exit_stack = AsyncExitStack()
         self.anthropic = Anthropic()
 
-    async def connect_to_server(self, server_script_path: str, server_name: str = None):
-        """Connect to an MCP server
+    def load_mcp_config(self, config_path: str) -> Dict[str, Any]:
+        """Load MCP configuration from JSON file
         
         Args:
-            server_script_path: Path to the server script (.py or .js)
-            server_name: Optional name for the server (defaults to filename without extension)
+            config_path: Path to the MCP configuration file (.mcp.json)
+            
+        Returns:
+            Dictionary containing MCP server configurations
         """
-        directory = os.path.dirname(server_script_path)
-        script_name = os.path.basename(server_script_path)
-        server_name = server_name or os.path.splitext(script_name)[0]
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = json.load(f)
             
-        is_python = server_script_path.endswith('.py')
-        is_js = server_script_path.endswith('.js')
-        if not (is_python or is_js):
-            raise ValueError("Server script must be a .py or .js file")
+            if 'mcpServers' not in config:
+                raise ValueError("Invalid MCP configuration format. Expected 'mcpServers' field.")
             
-        command = "uv" if is_python else "node"
-        server_params = StdioServerParameters(
-            command=command,
-            args=["--directory", directory, "run", script_name],
-            env=None
-        )
+            return config['mcpServers']
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Configuration file not found: {config_path}")
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in configuration file: {e}")
+
+    async def connect_to_server(self, server_name: str, server_config: Dict[str, Any]):
+        """Connect to an MCP server based on its configuration
         
-        stdio_transport = await self.exit_stack.enter_async_context(stdio_client(server_params))
-        stdio, write = stdio_transport
-        session = await self.exit_stack.enter_async_context(ClientSession(stdio, write))
+        Args:
+            server_name: Name of the server
+            server_config: MCP server configuration dictionary
+        """
+        print(f"Connecting to server '{server_name}'...")
         
-        await session.initialize()
+        try:
+            command = server_config['command']
+            args = server_config.get('args', [])
+            env = server_config.get('env', {})
+            
+            # Merge with current environment
+            full_env = {**os.environ, **env}
+
+            server_params = StdioServerParameters(
+                command=command,
+                args=args,
+                env=full_env
+            )
+            # breakpoint()
+            stdio_transport = await self.exit_stack.enter_async_context(stdio_client(server_params))
+            stdio, write = stdio_transport
+            session = await self.exit_stack.enter_async_context(ClientSession(stdio, write))
+
+            await session.initialize()
+
+            self.sessions[server_name] = session
+            self.servers[server_name] = {
+                'config': server_config,
+                'stdio': stdio,
+                'write': write
+            }
+            
+            # List available tools
+            response = await session.list_tools()
+            tools = response.tools
+            print(f"✓ Connected to server '{server_name}' with {len(tools)} tools: {[tool.name for tool in tools]}")
+            
+        except Exception as e:
+            print(f"✗ Failed to connect to server '{server_name}': {str(e)}")
+            raise
+
+    async def connect_from_config_file(self, config_path: str, server_names: Optional[List[str]] = None):
+        """Connect to servers specified in an MCP configuration file
         
-        # Store server info
-        self.sessions[server_name] = session
-        self.servers[server_name] = {
-            'path': server_script_path,
-            'stdio': stdio,
-            'write': write
-        }
+        Args:
+            config_path: Path to the MCP configuration file (.mcp.json)
+            server_names: Optional list of specific server names to connect to.
+                         If None, connects to all servers in the config (excluding examples).
+        """
+        mcp_servers = self.load_mcp_config(config_path)
         
-        # List available tools
-        response = await session.list_tools()
-        tools = response.tools
-        print(f"\nConnected to server '{server_name}' with tools:", [tool.name for tool in tools])
+        if server_names:
+            # Filter servers by name
+            filtered_servers = {
+                name: config for name, config in mcp_servers.items() 
+                if name in server_names
+            }
+            if not filtered_servers:
+                raise ValueError(f"No servers found with names: {server_names}")
+            mcp_servers = filtered_servers
+        else:
+            # Exclude example servers when no specific servers are requested
+            mcp_servers = {
+                name: config for name, config in mcp_servers.items()
+                if not name.startswith('example')
+            }
+        
+        if not mcp_servers:
+            print("No servers to connect to (all servers are examples or excluded)")
+            return
+        
+        print(f"Loading {len(mcp_servers)} server(s) from MCP configuration...")
+        
+        connected_servers = []
+        for server_name, server_config in mcp_servers.items():
+            try:
+                await self.connect_to_server(server_name, server_config)
+                connected_servers.append(server_name)
+            except Exception as e:
+                print(f"Warning: Skipping server '{server_name}' due to error: {e}")
+                continue
+        
+        if connected_servers:
+            print(f"✓ Successfully connected to {len(connected_servers)} server(s): {', '.join(connected_servers)}")
+        else:
+            print("✗ Failed to connect to any servers")
 
     async def process_query(self, query: str) -> str:
         """Process a query using Claude and available tools from all connected servers"""
@@ -156,21 +228,43 @@ class MCPClient:
         await self.exit_stack.aclose()
 
 async def main():
-    if len(sys.argv) < 2:
-        print("Usage: python client.py <path_to_server_script1> [path_to_server_script2] [...]")
-        sys.exit(1)
-        
+    """Main function"""
+    import sys
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='MCP Client - Model Context Protocol Client')
+    parser.add_argument('--config', '-c', 
+                       help='Path to MCP configuration file (.mcp.json)')
+    parser.add_argument('--servers', '-s', nargs='*',
+                       help='Specific server names to connect to (from config)')
+    
+    args = parser.parse_args()
+    
     client = MCPClient()
     try:
-        # Connect to all provided servers
-        for server_path in sys.argv[1:]:
-            await client.connect_to_server(server_path, "Naver OpenAPI")
+        if args.config:
+            # Use specified MCP configuration file
+            await client.connect_from_config_file(args.config, args.servers)
+        else:
+            # Default: look for .mcp.json in the same directory
+            default_config = os.path.join(os.path.dirname(__file__), '.mcp.json')
+            if os.path.exists(default_config):
+                print(f"Using default configuration: {default_config}")
+                await client.connect_from_config_file(default_config, args.servers)
+            else:
+                print("Error: No MCP configuration file found.")
+                print("Usage:")
+                print("  python client.py --config path/to/.mcp.json")
+                print("  python client.py --config .mcp.json --servers server1 server2")
+                print(f"\nExpected default configuration file: {default_config}")
+                sys.exit(1)
             
-        print(f"\nConnected to {len(sys.argv[1:])} server(s)")
-        await client.chat_loop()
+        if client.sessions:
+            await client.chat_loop()
+        else:
+            print("No servers connected. Exiting.")
     finally:
         await client.cleanup()
 
 if __name__ == "__main__":
-    import sys
     asyncio.run(main())

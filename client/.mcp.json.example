@@ -1,0 +1,31 @@
+{
+  "mcpServers": {
+    "naver-openapi": {
+      "command": "uv",
+      "args": ["--directory", "../server", "run", "mcp_naver/server.py"],
+      "env": {
+        "NAVER_CLIENT_ID": "your_naver_client_id",
+        "NAVER_CLIENT_SECRET": "your_naver_client_secret"
+      }
+    },
+    "example-js-server": {
+      "command": "node",
+      "args": ["/path/to/your/server.js"],
+      "env": {
+        "NODE_ENV": "production"
+      }
+    },
+    "example-npm-server": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-everything"],
+      "env": {}
+    },
+    "example-executable": {
+      "command": "/usr/local/bin/my-mcp-server",
+      "args": ["--config", "/path/to/config.json"],
+      "env": {
+        "API_KEY": "your-api-key"
+      }
+    }
+  }
+} 
