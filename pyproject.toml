@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "mcp-naver"
+name = "nl-map-search"
 version = "0.1.5"
 description = "MCP server providing Naver Open APIs"
 readme = "README.md"
@@ -18,18 +18,16 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "pandas>=1.5.0",
 ]
-authors = [{ name = "Dongyong Lee", email = "pfldy2850@gmail.com" }]
+authors = []
 
 [project.urls]
-Repository = "https://github.com/pfldy2850/py-mcp-naver.git"
-Issues = "https://github.com/pfldy2850/py-mcp-naver/issues"
-Github = "https://github.com/pfldy2850/py-mcp-naver"
+original = "https://github.com/pfldy2850/py-mcp-naver.git"
 
 [project.scripts]
-mcp-naver = "mcp_naver:server"
+nl_map_search = "server:mcp.run"
 
 [tool.hatch.build.targets.wheel]
-packages = ["mcp_naver"]
+include = ["server.py"]
 
 [dependency-groups]
 dev = [
