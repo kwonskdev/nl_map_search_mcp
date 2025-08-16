@@ -407,8 +407,7 @@ async def places_to_map(
     places: List[Dict[str, Any]],
     center: Optional[Dict[str, float]] = None,
     radius_m: Optional[float] = None,
-    map_title: str = "Places 
-    Map",
+    map_title: str = "Places Map",
     zoom_start: int = 15,
     save_to: Optional[str] = None,  # optional output filepath; if None, saves to /tmp
     cluster_markers: bool = True,
