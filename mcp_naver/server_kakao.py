@@ -1,9 +1,6 @@
 # demo.py
-import json
 import os
 import requests
-import httpx
-import xmltodict
 from fastmcp import FastMCP
 from typing import Annotated, List
 import numpy as np
@@ -172,7 +169,13 @@ def mcp_find_route_kakao(
                 DISTANCE  : 최단 경로
     """
     response = find_route_kakao(origin, destination, way_points, priority)
-    return response.text
+    data = response.json()
+    road_section = data['routes'][0]['sections'][0]['roads']
+    for road in road_section:
+        road['vertexes'] = [(road['vertexes'][0],road['vertexes'][1]),
+                            (road['vertexes'][-2],road['vertexes'][-1])]
+    
+    return str(data)#response#.text
     
 if __name__ == "__main__":
     mcp.run()
