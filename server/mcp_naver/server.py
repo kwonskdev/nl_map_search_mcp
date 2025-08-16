@@ -201,7 +201,7 @@ def search_google(
     if not GOOGLE_API_KEY or not GOOGLE_SEARCH_ENGINE_ID:
         return json.dumps({
             "error": "Google API 키 또는 검색 엔진 ID가 설정되지 않았습니다. GOOGLE_API_KEY와 GOOGLE_SEARCH_ENGINE_ID 환경 변수를 확인해주세요."
-        })
+        }, ensure_ascii=False, indent=2)
 
     params = {
         'key': GOOGLE_API_KEY,
@@ -225,10 +225,10 @@ def search_google(
     
     except httpx.HTTPStatusError as e:
         error_msg = f"Google API 요청 오류: {e.response.status_code} - {e.response.text}"
-        return json.dumps({"error": error_msg})
+        return json.dumps({"error": error_msg}, ensure_ascii=False, indent=2)
     except Exception as e:
         error_msg = f"Google 검색 중 오류 발생: {str(e)}"
-        return json.dumps({"error": error_msg})
+        return json.dumps({"error": error_msg}, ensure_ascii=False, indent=2)
 
 ### 유튜브 MCP 서비스 ###
 @mcp.tool(
