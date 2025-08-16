@@ -8,8 +8,6 @@ from fastmcp import FastMCP
 
 import requests
 from typing import Annotated, List
-import numpy as np
-import pandas as pd
 
 
 mcp = FastMCP("Naver OpenAPI", dependencies=["httpx", "xmltodict"])
