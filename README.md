@@ -1,3 +1,12 @@
+## Attribution
+
+This project uses code from mcp-naver by pfldy2850, licensed under the MIT License.
+Original project: https://github.com/pfldy2850/py-mcp-naver.git
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
 # nl_map_search_mcp
 자연어로 지도에서 장소 검색하는 MCP 서버
 

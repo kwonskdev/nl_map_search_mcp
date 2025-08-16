@@ -18,7 +18,15 @@ api_headers = {
 
 API_ENDPOINT = "https://openapi.naver.com/v1"
 
+# Google Custom Search API 설정
+GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
+GOOGLE_SEARCH_ENGINE_ID = os.environ.get("GOOGLE_SEARCH_ENGINE_ID")
+GOOGLE_BASE_URL = "https://www.googleapis.com/customsearch/v1"
 
+# Youtube MCP API 설정
+YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY")
+
+# Based on code from mcp-naver by pfldy2850 (MIT License)
 @mcp.tool(
     name="search_blog",
     description="Search blog posts on Naver",
@@ -56,7 +64,7 @@ async def search_blog(
 
         return response.text
 
-
+# Based on code from mcp-naver by pfldy2850 (MIT License)
 @mcp.tool(
     name="search_cafe_article",
     description="Search cafe articles on Naver",
@@ -94,7 +102,7 @@ def search_cafe_article(
 
         return response.text
 
-
+# Based on code from mcp-naver by pfldy2850 (MIT License)
 @mcp.tool(
     name="search_local",
     description="Search local information on Naver",
@@ -164,6 +172,156 @@ def search_webkr(
         )
 
         response.raise_for_status()  # Raise an error for bad responses
+
+        return response.text
+
+
+@mcp.tool(
+    name="search_google",
+    description="Search web pages using Google Custom Search API",
+)
+def search_google(
+    query: str,
+    num_results: int = 10,
+    start_index: int = 1,
+    search_type: str = None,
+    language: str = "ko",
+):
+    """
+    Google Custom Search API를 사용하여 웹 검색을 수행합니다.
+    웹페이지, 이미지, 뉴스 등 다양한 콘텐츠를 검색할 수 있습니다.
+
+    Args:
+        query (str): 검색할 키워드나 문구
+        num_results (int, optional): 결과 개수 (기본값: 10, 최대: 10)
+        start_index (int, optional): 시작 인덱스 (페이지네이션용, 기본값: 1)
+        search_type (str, optional): 검색 타입 - "image" (이미지 검색), None (웹 검색)
+        language (str, optional): 검색 언어 - "ko" (한국어), "en" (영어) 등 (기본값: "ko")
+    """
+    
+    if not GOOGLE_API_KEY or not GOOGLE_SEARCH_ENGINE_ID:
+        return json.dumps({
+            "error": "Google API 키 또는 검색 엔진 ID가 설정되지 않았습니다. GOOGLE_API_KEY와 GOOGLE_SEARCH_ENGINE_ID 환경 변수를 확인해주세요."
+        })
+
+    params = {
+        'key': GOOGLE_API_KEY,
+        'cx': GOOGLE_SEARCH_ENGINE_ID,
+        'q': query,
+        'num': min(num_results, 10),  # 최대 10개
+        'start': start_index,
+        'hl': language,  # 인터페이스 언어
+        'lr': f'lang_{language}',  # 검색 결과 언어
+    }
+    
+    # 이미지 검색인 경우 searchType 파라미터 추가
+    if search_type == "image":
+        params['searchType'] = 'image'
+    
+    try:
+        with httpx.Client() as client:
+            response = client.get(GOOGLE_BASE_URL, params=params)
+            response.raise_for_status()
+            return response.text
+    
+    except httpx.HTTPStatusError as e:
+        error_msg = f"Google API 요청 오류: {e.response.status_code} - {e.response.text}"
+        return json.dumps({"error": error_msg})
+    except Exception as e:
+        error_msg = f"Google 검색 중 오류 발생: {str(e)}"
+        return json.dumps({"error": error_msg})
+
+### 유튜브 MCP 서비스 ###
+@mcp.tool(
+    name="search_video",
+    description="Search for a YouTube video",
+)
+
+async def search_video(
+    query: str,
+    max_results: int = 10,
+):
+    """
+    Search for a YouTube video
+
+    Args:
+        query (str): The query to search for.
+        max_results (int, optional): The maximum number of results to return. Defaults to 10.
+    """
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"https://www.googleapis.com/youtube/v3/search?part=snippet&q={query}&key={YOUTUBE_API_KEY}",
+            params={
+                "part": "snippet",
+                "q": query,
+                "key": YOUTUBE_API_KEY,
+            },
+            headers=api_headers,
+        )   
+
+        response.raise_for_status() 
+
+        return response.text
+
+
+@mcp.tool(
+    name="get_video_details",
+    description="Get the details of a YouTube video",
+)
+
+async def get_video_details(
+    video_id: str
+):
+    """
+    Get the details of a YouTube video
+
+    Args:
+        video_id (str): The ID of the YouTube video
+    """
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"https://www.googleapis.com/youtube/v3/videos?part=snippet&id={video_id}&key={YOUTUBE_API_KEY}",
+            params={
+                "part": "snippet",
+                "id": video_id,
+                "key": YOUTUBE_API_KEY,
+            },
+            headers=api_headers,
+        )
+
+        response.raise_for_status()
+
+        return response.text
+
+
+@mcp.tool(
+    name="get_youtube_transcript",
+    description="Get the transcript of a YouTube video",
+)
+
+async def get_youtube_transcript(
+    video_id: str
+):
+
+    """
+    Get the transcript of a YouTube video
+    
+    Args:
+        video_id (str): The ID of the YouTube video
+    """
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"https://www.googleapis.com/youtube/v3/videos?part=snippet&id={video_id}&key={YOUTUBE_API_KEY}",
+            params={
+                "part": "snippet",
+                "id": video_id,
+                "key": YOUTUBE_API_KEY,
+            },
+            headers=api_headers,
+        )
+
+        response.raise_for_status()
 
         return response.text
 
