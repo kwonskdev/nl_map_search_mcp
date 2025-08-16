@@ -145,10 +145,10 @@ def mcp_search_webkr_kakao(
     return data
 
 
-#@mcp.tool(
-#    name="mcp_find_route_kakao",
-#    description="get coord and Search route on Kakao Navi "
-#    )
+@mcp.tool(
+    name="mcp_find_route_kakao",
+    description="get coord and Search route on Kakao Navi "
+    )
 def mcp_find_route_kakao(
     origin : Annotated[str, "출발지의 이름"],
     destination : Annotated[str, "도착지의 이름"],
