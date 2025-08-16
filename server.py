@@ -23,12 +23,12 @@ import webbrowser
 import subprocess
 import sys
 
-mcp = FastMCP("Naver OpenAPI", dependencies=["httpx", "xmltodict", "folium", "geopy"])
+mcp = FastMCP("OpenAPI", dependencies=["httpx", "xmltodict", "folium", "geopy"])
 import requests
 from typing import Annotated, List
 
 
-mcp = FastMCP("Naver OpenAPI", dependencies=["httpx", "xmltodict"])
+#mcp = FastMCP("Naver OpenAPI", dependencies=["httpx", "xmltodict"])
 
 NAVER_CLIENT_ID = os.environ.get("NAVER_CLIENT_ID")
 NAVER_CLIENT_SECRET = os.environ.get("NAVER_CLIENT_SECRET")
@@ -404,7 +404,7 @@ def _within_radius(center: Dict[str,float], point: Dict[str,float], radius_m: fl
     description="Given a list of places (name + optional address or coordinates), geocode missing coords, filter by radius (optional), and return a folium HTML map (string) and saved filepath. IMPORTANT: This creates an HTML file that should be attached to the chat response."
 )
 async def places_to_map(
-    places: List[Dict[str, Any]],
+    places: Annotated[List[str], "검색할 장소 이름 리스트"],
     center: Optional[Dict[str, float]] = None,
     radius_m: Optional[float] = None,
     map_title: str = "Places Map",
@@ -428,22 +428,12 @@ async def places_to_map(
     # 1) geocode missing coords (with polite delay)
     resolved_places = []
     for p in places:
-        name = p.get("name") or p.get("title") or "unknown"
-        lat = p.get("lat") or p.get("latitude") or p.get("y")
-        lon = p.get("lon") or p.get("longitude") or p.get("x")
-        if lat is None or lon is None:
-            addr = p.get("address") or p.get("addr") or p.get("roadAddress")
-            if addr:
-                coords = await _geocode_address_async(addr)
-                if coords:
-                    lat, lon = coords["lat"], coords["lon"]
-                else:
-                    # skip if cannot geocode
-                    continue
-            else:
-                # no coords or address -> skip
-                continue
-        candidate = {"name": name, "lat": float(lat), "lon": float(lon), "popup": p.get("popup", p.get("description", ""))}
+        
+        p_info = search_local_kakao_response(p).json()['documents'][0]
+        lat = p_info['y']
+        lon = p_info['x']
+        
+        candidate = {"name": p, "lat": float(lat), "lon": float(lon), "popup": ""}
         # optional original metadata
         candidate["meta"] = p
         resolved_places.append(candidate)
