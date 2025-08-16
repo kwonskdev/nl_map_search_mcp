@@ -13,6 +13,10 @@ dependencies = [
     "httpx>=0.28.1",
     "pydantic>=2.10.6",
     "xmltodict>=0.14.2",
+    "geopy>=2.4.0",
+    "folium>=0.15.0",
+    "python-dotenv>=1.0.0",
+    "pandas>=1.5.0",
 ]
 authors = [{ name = "Dongyong Lee", email = "pfldy2850@gmail.com" }]
 
