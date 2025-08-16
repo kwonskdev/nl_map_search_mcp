@@ -26,6 +26,7 @@ GOOGLE_BASE_URL = "https://www.googleapis.com/customsearch/v1"
 # Youtube MCP API 설정
 YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY")
 
+# Based on code from mcp-naver by pfldy2850 (MIT License)
 @mcp.tool(
     name="search_blog",
     description="Search blog posts on Naver",
@@ -63,7 +64,7 @@ async def search_blog(
 
         return response.text
 
-
+# Based on code from mcp-naver by pfldy2850 (MIT License)
 @mcp.tool(
     name="search_cafe_article",
     description="Search cafe articles on Naver",
@@ -101,7 +102,7 @@ def search_cafe_article(
 
         return response.text
 
-
+# Based on code from mcp-naver by pfldy2850 (MIT License)
 @mcp.tool(
     name="search_local",
     description="Search local information on Naver",
