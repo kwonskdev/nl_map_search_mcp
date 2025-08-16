@@ -7,18 +7,55 @@ Original project: https://github.com/pfldy2850/py-mcp-naver.git
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-# nl_map_search_mcp
-자연어로 지도에서 장소 검색하는 MCP 서버
+# Multi-Platform Search MCP Server
 
-## 사전 요구사항
-Naver MCP 서버를 사용하려면 Naver Open API 접근 권한을 신청해야 합니다.  
-아래 링크에서 Open API 접근을 신청할 수 있습니다:
+다중 플랫폼 검색 기능을 제공하는 MCP (Model Context Protocol) 서버입니다. 네이버, 카카오, 구글, 유튜브 등 여러 플랫폼의 검색 API를 통합하여 제공합니다.
 
-https://developers.naver.com/apps/#/register=datalab
+## 🚀 주요 기능
 
-## 설치 방법
+### 검색 도구 (Search Tools)
 
-### MCP 서버 및 의존성 설치 (using `git bash`)
+#### 1. `search_web` - 일반 웹 검색
+- **용도**: 가장 일반적인 웹 검색 도구
+- **플랫폼**: Naver, Kakao, Google
+- **특징**: 종합적인 검색 결과, 뉴스, 기사, 일반 웹 콘텐츠
+- **사용 시점**: 광범위한 정보 수집이 필요할 때
+
+#### 2. `search_review` - 리뷰 및 경험담 검색
+- **용도**: 사용자 리뷰, 의견, 경험담 검색
+- **플랫폼**: Naver 블로그, YouTube 동영상
+- **특징**: 개인적인 리뷰와 주관적인 의견, YouTube 동영상 상세 정보 및 자막 포함
+- **사용 시점**: 제품, 서비스, 장소에 대한 구체적인 리뷰가 필요할 때
+
+#### 3. `search_local` - 업체 정보 검색
+- **용도**: 공식 업체 정보 검색
+- **플랫폼**: Naver, Kakao
+- **특징**: 전화번호, 주소, 영업시간, 업체 카테고리 등 공식 정보
+- **사용 시점**: 음식점, 카페, 병원 등의 정확한 업체 정보가 필요할 때
+
+#### 4. `find_route_with_stops` - 경유지 포함 경로 검색
+- **용도**: 경유지가 포함된 최적 경로 탐색
+- **플랫폼**: Kakao 네비 API
+- **특징**: 출발지, 도착지, 경유지 설정 및 경로 우선순위 설정
+- **사용 시점**: 여행 중 주유소, 휴게소 등 특정 장소를 경유해야 할 때
+
+## 📁 프로젝트 구조
+
+```
+nl_map_search_mcp/
+├── server.py              # MCP 서버 및 도구 정의
+├── apis/                   # API 모듈들
+│   ├── __init__.py
+│   ├── naver.py           # 네이버 API 기능
+│   ├── kakao.py           # 카카오 API 기능
+│   ├── youtube.py         # 유튜브 API 기능
+│   └── google.py          # 구글 API 기능
+└── README.md
+```
+
+## 🔧 설치 및 설정
+
+### 1. 저장소 클론 및 의존성 설치
 
 ```bash
 # 저장소 클론
@@ -31,19 +68,53 @@ cd nl_map_search_mcp
 uv sync --dev --all-extras
 ```
 
-### 서버 실행
+### 2. 환경 변수 설정
 
-```powershell
-uv run fastmcp install cursor mcp_naver/server.py --env-file .env
-```
+.env 파일을 생성하고 다음 API 키들을 설정해야 합니다:
 
-**참고사항**: 
-- 서버 실행 전에 .env 파일을 아래와 같이 작성해야 합니다.
-
-```
+```bash
+# Naver API
 NAVER_CLIENT_ID=<YOUR NAVER CLIENT ID>
 NAVER_CLIENT_SECRET=<YOUR NAVER CLIENT SECRET>
+
+# Kakao API
+KAKAO_REST_API_KEY=<YOUR KAKAO REST API KEY>
+
+# YouTube API
+YOUTUBE_API_KEY=<YOUR YOUTUBE API KEY>
+
+# Google Custom Search API
+GOOGLE_API_KEY=<YOUR GOOGLE API KEY>
+GOOGLE_SEARCH_ENGINE_ID=<YOUR SEARCH ENGINE ID>
 ```
+
+### 3. 서버 실행
+
+```powershell
+uv run fastmcp install cursor nl_map_search_mcp/server.py --env-file .env
+```
+
+## 🔑 API 키 획득 방법
+
+### Naver API
+- [Naver Developers](https://developers.naver.com/) 에서 애플리케이션 등록
+- 검색 API 사용 권한 신청
+- Client ID와 Client Secret 획득
+
+### Kakao API
+- [Kakao Developers](https://developers.kakao.com/) 에서 앱 생성
+- 로컬 API와 네비 API 사용 권한 활성화
+- REST API 키 획득
+
+### YouTube API
+- [Google Cloud Console](https://console.cloud.google.com/) 에서 프로젝트 생성
+- YouTube Data API v3 활성화
+- API 키 생성
+
+### Google Custom Search API
+- [Google Cloud Console](https://console.cloud.google.com/) 에서 Custom Search API 활성화
+- [Programmable Search Engine](https://programmablesearchengine.google.com/) 에서 검색엔진 생성
+- API 키와 검색엔진 ID 획득
 
 <details>
 <summary>📖 Naver MCP Server (기존 README 내용 보기)</summary>
