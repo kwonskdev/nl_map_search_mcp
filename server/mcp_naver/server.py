@@ -19,6 +19,9 @@ from folium.plugins import MarkerCluster
 from geopy.geocoders import Nominatim
 from geopy.distance import distance as geopy_distance
 from geopy.exc import GeocoderTimedOut, GeocoderUnavailable
+import webbrowser
+import subprocess
+import sys
 
 mcp = FastMCP("Naver OpenAPI", dependencies=["httpx", "xmltodict", "folium", "geopy"])
 
@@ -384,16 +387,18 @@ def _within_radius(center: Dict[str,float], point: Dict[str,float], radius_m: fl
 
 @mcp.tool(
     name="places_to_map",
-    description="Given a list of places (name + optional address or coordinates), geocode missing coords, filter by radius (optional), and return a folium HTML map (string) and saved filepath."
+    description="Given a list of places (name + optional address or coordinates), geocode missing coords, filter by radius (optional), and return a folium HTML map (string) and saved filepath. IMPORTANT: This creates an HTML file that should be attached to the chat response."
 )
 async def places_to_map(
     places: List[Dict[str, Any]],
     center: Optional[Dict[str, float]] = None,
     radius_m: Optional[float] = None,
-    map_title: str = "Places Map",
+    map_title: str = "Places 
+    Map",
     zoom_start: int = 15,
     save_to: Optional[str] = None,  # optional output filepath; if None, saves to /tmp
     cluster_markers: bool = True,
+    html_only: bool = False,  # if True, return only HTML content without saving file
 ) -> str:
     """
     places: list of dicts, each dict may have:
@@ -458,20 +463,81 @@ async def places_to_map(
             marker.add_to(fmap)
 
     # 4) save HTML to file and also return HTML string
+    if html_only:
+        # return only HTML content without saving file
+        return fmap._repr_html_()
+    
+    # 현재 파일의 디렉토리를 기준으로 maps 폴더 경로 설정
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    maps_dir = os.path.join(current_dir, "..", "maps")
+    os.makedirs(maps_dir, exist_ok=True)
+    
     if not save_to:
-        maps_dir = os.path.join(tempfile.gettempdir(), "mcp_maps")
-        os.makedirs(maps_dir, exist_ok=True)
         timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
         save_to = os.path.join(maps_dir, f"map_{timestamp}.html")
+    else:
+        # save_to가 상대 경로인 경우 maps 폴더 기준으로 절대 경로로 변환
+        if not os.path.isabs(save_to):
+            save_to = os.path.join(maps_dir, save_to)
 
     fmap.save(save_to)
 
-    # read and return HTML content (주의: 큰 파일이면 메모리 고려)
-    with open(save_to, "r", encoding="utf-8") as f:
-        html = f.read()
+    # 파일명만 추출 (경로에서)
+    filename = os.path.basename(save_to)
+    
+    # 자동으로 브라우저에서 열기 시도
+    try:
+        webbrowser.open(f"file://{save_to}")
+        browser_opened = True
+    except Exception:
+        browser_opened = False
+    
+    # HTML 링크가 포함된 응답 생성
+    response_text = f"""지도가 성공적으로 생성되었습니다!
 
-    # return a JSON string containing both html and path to the file for convenience
-    return json.dumps({"html": html, "filepath": save_to}, ensure_ascii=False)
+📍 **생성된 지도**: [{filename}](file://{save_to})
+
+{'✅ 브라우저에서 자동으로 열렸습니다!' if browser_opened else '💡 지도 파일을 클릭하시면 브라우저에서 열립니다.'}
+
+만약 클릭이 안 되시면 아래 경로를 복사해서 브라우저 주소창에 붙여넣어주세요:
+
+`file://{save_to}`
+
+**지도 정보:**
+- 총 {len(filtered)}개 장소 표시
+- 중심점: {map_center[0]:.6f}, {map_center[1]:.6f}
+- 줌 레벨: {zoom_start}
+- 마커 클러스터링: {'활성화' if cluster_markers else '비활성화'}
+
+지도에서 각 마커를 클릭하면 장소 정보를 확인할 수 있습니다."""
+
+    return response_text
+
+
+@mcp.tool(
+    name="open_map_file",
+    description="Open a map HTML file in the default browser",
+)
+def open_map_file(
+    filepath: str,
+):
+    """
+    지정된 지도 HTML 파일을 기본 브라우저에서 엽니다.
+    
+    Args:
+        filepath (str): 열고자 하는 HTML 파일의 경로
+    """
+    try:
+        # 파일 존재 확인
+        if not os.path.exists(filepath):
+            return f"❌ 오류: 파일을 찾을 수 없습니다: {filepath}"
+        
+        # 브라우저에서 파일 열기
+        webbrowser.open(f"file://{filepath}")
+        return f"✅ 지도 파일이 브라우저에서 열렸습니다: {filepath}"
+    
+    except Exception as e:
+        return f"❌ 오류: 파일을 열 수 없습니다: {str(e)}"
 
 if __name__ == "__main__":
     mcp.run()
