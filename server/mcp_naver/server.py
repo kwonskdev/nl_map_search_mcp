@@ -1,12 +1,26 @@
 # demo.py
 import json
 import os
+import re
+from typing import List, Dict, Any, Optional
 
 import httpx
 import xmltodict
 from fastmcp import FastMCP
 
-mcp = FastMCP("Naver OpenAPI", dependencies=["httpx", "xmltodict"])
+import time
+import asyncio
+import tempfile
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
+
+import folium
+from folium.plugins import MarkerCluster
+from geopy.geocoders import Nominatim
+from geopy.distance import distance as geopy_distance
+from geopy.exc import GeocoderTimedOut, GeocoderUnavailable
+
+mcp = FastMCP("Naver OpenAPI", dependencies=["httpx", "xmltodict", "folium", "geopy"])
 
 
 NAVER_CLIENT_ID = os.environ.get("NAVER_CLIENT_ID")
@@ -324,6 +338,140 @@ async def get_youtube_transcript(
 
         return response.text
 
+
+# 환경변수로 사용자 에이전트 설정 권장
+NOMINATIM_USER_AGENT = os.environ.get("NOMINATIM_USER_AGENT", "mcp-geocoder-example")
+_geolocator = Nominatim(user_agent=NOMINATIM_USER_AGENT, timeout=10)
+
+# 내부 쓰레드풀(geopy는 블로킹이므로 비동기 함수에서 run_in_executor로 사용)
+_thread_executor = ThreadPoolExecutor(max_workers=4)
+
+async def _geocode_address_async(address: str) -> Optional[Dict[str, float]]:
+    """
+    주소 -> {lat, lon} (비동기 래퍼)
+    """
+    loop = asyncio.get_running_loop()
+    try:
+        loc = await loop.run_in_executor(_thread_executor, lambda: _geolocator.geocode(address))
+        if loc:
+            return {"lat": loc.latitude, "lon": loc.longitude}
+    except (GeocoderTimedOut, GeocoderUnavailable):
+        # 간단한 재시도
+        try:
+            await asyncio.sleep(1)
+            loop = asyncio.get_running_loop()
+            loc = await loop.run_in_executor(_thread_executor, lambda: _geolocator.geocode(address))
+            if loc:
+                return {"lat": loc.latitude, "lon": loc.longitude}
+        except Exception:
+            return None
+    except Exception:
+        return None
+    return None
+
+def _geocode_address_sync(address: str) -> Optional[Dict[str, float]]:
+    try:
+        loc = _geolocator.geocode(address)
+        if loc:
+            return {"lat": loc.latitude, "lon": loc.longitude}
+    except Exception:
+        return None
+    return None
+
+def _within_radius(center: Dict[str,float], point: Dict[str,float], radius_m: float) -> bool:
+    """center and point: {'lat':..., 'lon':...}"""
+    return geopy_distance((center['lat'], center['lon']), (point['lat'], point['lon'])).meters <= radius_m
+
+@mcp.tool(
+    name="places_to_map",
+    description="Given a list of places (name + optional address or coordinates), geocode missing coords, filter by radius (optional), and return a folium HTML map (string) and saved filepath."
+)
+async def places_to_map(
+    places: List[Dict[str, Any]],
+    center: Optional[Dict[str, float]] = None,
+    radius_m: Optional[float] = None,
+    map_title: str = "Places Map",
+    zoom_start: int = 15,
+    save_to: Optional[str] = None,  # optional output filepath; if None, saves to /tmp
+    cluster_markers: bool = True,
+) -> str:
+    """
+    places: list of dicts, each dict may have:
+      - name (required)
+      - address (optional)
+      - lat (optional)
+      - lon (optional)
+      - popup (optional)  # html/text for popup
+    center: {'lat': .., 'lon': ..} optional - map center and for radius filter
+    radius_m: if provided, only include places within radius_m meters of center
+    Returns: HTML string of the map (and also saves file under save_to or temp file).
+    """
+
+    # 1) geocode missing coords (with polite delay)
+    resolved_places = []
+    for p in places:
+        name = p.get("name") or p.get("title") or "unknown"
+        lat = p.get("lat") or p.get("latitude") or p.get("y")
+        lon = p.get("lon") or p.get("longitude") or p.get("x")
+        if lat is None or lon is None:
+            addr = p.get("address") or p.get("addr") or p.get("roadAddress")
+            if addr:
+                coords = await _geocode_address_async(addr)
+                if coords:
+                    lat, lon = coords["lat"], coords["lon"]
+                else:
+                    # skip if cannot geocode
+                    continue
+            else:
+                # no coords or address -> skip
+                continue
+        candidate = {"name": name, "lat": float(lat), "lon": float(lon), "popup": p.get("popup", p.get("description", ""))}
+        # optional original metadata
+        candidate["meta"] = p
+        resolved_places.append(candidate)
+        # rate-limit politeness
+        await asyncio.sleep(0.2)
+
+    # 2) optional radius filter
+    if center and radius_m:
+        filtered = [pl for pl in resolved_places if _within_radius(center, {"lat":pl["lat"], "lon":pl["lon"]}, radius_m)]
+    else:
+        filtered = resolved_places
+
+    if not filtered:
+        return json.dumps({"error": "No resolvable places within constraints."}, ensure_ascii=False)
+
+    # 3) build folium map
+    map_center = (center["lat"], center["lon"]) if center else (filtered[0]["lat"], filtered[0]["lon"])
+    fmap = folium.Map(location=map_center, zoom_start=zoom_start, control_scale=True)
+    if cluster_markers:
+        marker_cluster = MarkerCluster().add_to(fmap)
+    else:
+        marker_cluster = None
+
+    for pl in filtered:
+        popup_html = f"<b>{pl['name']}</b><br/>{pl.get('popup','')}"
+        marker = folium.Marker(location=(pl["lat"], pl["lon"]), popup=folium.Popup(popup_html, max_width=300))
+        if marker_cluster:
+            marker.add_to(marker_cluster)
+        else:
+            marker.add_to(fmap)
+
+    # 4) save HTML to file and also return HTML string
+    if not save_to:
+        maps_dir = os.path.join(tempfile.gettempdir(), "mcp_maps")
+        os.makedirs(maps_dir, exist_ok=True)
+        timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+        save_to = os.path.join(maps_dir, f"map_{timestamp}.html")
+
+    fmap.save(save_to)
+
+    # read and return HTML content (주의: 큰 파일이면 메모리 고려)
+    with open(save_to, "r", encoding="utf-8") as f:
+        html = f.read()
+
+    # return a JSON string containing both html and path to the file for convenience
+    return json.dumps({"html": html, "filepath": save_to}, ensure_ascii=False)
 
 if __name__ == "__main__":
     mcp.run()
