@@ -145,10 +145,10 @@ def mcp_search_webkr_kakao(
     return data
 
 
-@mcp.tool(
-    name="mcp_find_route_kakao",
-    description="get coord and Search route on Kakao Navi "
-    )
+#@mcp.tool(
+#    name="mcp_find_route_kakao",
+#    description="get coord and Search route on Kakao Navi "
+#    )
 def mcp_find_route_kakao(
     origin : Annotated[str, "출발지의 이름"],
     destination : Annotated[str, "도착지의 이름"],
@@ -171,9 +171,17 @@ def mcp_find_route_kakao(
     response = find_route_kakao(origin, destination, way_points, priority)
     data = response.json()
     road_section = data['routes'][0]['sections'][0]['roads']
+
+    refined_road_section = []
+    
+    last_road_name = None
     for road in road_section:
-        road['vertexes'] = [(road['vertexes'][0],road['vertexes'][1]),
-                            (road['vertexes'][-2],road['vertexes'][-1])]
+        if last_road_name != road['name']:
+            refined_road_section.append({'name':road['name'],
+                                         'vertexes': [(road['vertexes'][0],road['vertexes'][1]),None]})
+            last_road_name = road['name']            
+        refined_road_section[-1]['vertexes'][-1] = (road['vertexes'][-2],road['vertexes'][-1])
+    data['routes'][0]['sections'][0]['roads'] = refined_road_section
     
     return str(data)#response#.text
     
